@@ -5,9 +5,26 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+//#include <gdiplus.h>
+
 #pragma comment(lib,"lua-5.3.5.lib")
 
-Canvas::Canvas(void) : ls(nullptr), dc_store(0), reporter_fun(nullptr) {}
+Canvas::Canvas(void) : ls(nullptr), dc_store(0), reporter_fun(nullptr) {
+	struct a_bk_line_u {
+		BYTE pix[2];
+		a_bk_line_u(void) : pix{ 0,0xFF } {}
+	};
+	struct a_bk_line_d {
+		BYTE pix[2];
+		a_bk_line_d(void) : pix{ 0xFF,0 } {}
+	};
+	static const struct {
+		a_bk_line_u u[8];
+		a_bk_line_d d[8];
+	}alpha_bk_pix;
+	alpha_bmp.CreateBitmap(16, 16, 1, 1, &alpha_bk_pix);
+	alpha_brush.CreatePatternBrush(&alpha_bmp);
+}
 Canvas::~Canvas(void) {
 	reset();
 }
@@ -64,6 +81,7 @@ int Canvas::init(CDC* dc,CRect& rect) {
 	world_axis = false;
 	color_pen = 0;
 	color_brush = 0x00FFFFFF;
+	color_text = 0;
 
 	if (lua_istable(ls, -1)) {
 		parse_config();
@@ -90,7 +108,7 @@ int Canvas::init(CDC* dc,CRect& rect) {
 		mdc.SelectObject(GetStockObject(DC_BRUSH));
 		mdc.SetDCPenColor(color_pen);
 		mdc.SetDCBrushColor(color_brush);
-
+		mdc.SetTextColor(color_text);
 		open_lib_gdi();
 		index = 0;
 		res = 0;
@@ -126,21 +144,29 @@ bool Canvas::draw(CDC* dc,CRect& rect) {
 	if (!operator bool())
 		return false;
 
+	static const POINT points[] = { {0,300},{300,0},{300,600} };
+
+	//PlgBlt(dc->GetSafeHdc(), points, mdc.GetSafeHdc(), 0, 0, size.cx, size.cy, NULL, 0, 0);
+	//return true;
 
 	if (stretch)
 		dc->StretchBlt(rect.left, rect.top, rect.Width(), rect.Height(), &mdc, 0, 0, size.cx, size.cy, SRCCOPY);
 	else {
+		int state = dc->SaveDC();
+		dc->SetTextColor(RGB(192, 192, 192));
+		dc->SetBkColor(RGB(128, 128, 128));
 		LONG bx = rect.left + (rect.Width() - size.cx) / 2;
 		LONG by = rect.top + (rect.Height() - size.cy) / 2;
 		dc->BitBlt(bx, by, size.cx, size.cy, &mdc, 0, 0, SRCCOPY);
 		if (size.cx < rect.Width()) {
-			dc->FillSolidRect(CRect{ rect.left,rect.top,bx,rect.bottom }, RGB(255, 255, 255));
-			dc->FillSolidRect(CRect{ bx + size.cx,rect.top,rect.right,rect.bottom }, RGB(255, 255, 255));
+			dc->FillRect(CRect{ rect.left,rect.top,bx,rect.bottom }, &alpha_brush);
+			dc->FillRect(CRect{ bx + size.cx,rect.top,rect.right,rect.bottom }, &alpha_brush);
 		}
 		if (size.cy < rect.Height()){
-			dc->FillSolidRect(CRect{ rect.left,rect.top,rect.right,by }, RGB(255, 255, 255));
-			dc->FillSolidRect(CRect{ rect.left,by + size.cy,rect.right,rect.bottom }, RGB(255, 255, 255));
+			dc->FillRect(CRect{ rect.left,rect.top,rect.right,by }, &alpha_brush);
+			dc->FillRect(CRect{ rect.left,by + size.cy,rect.right,rect.bottom }, &alpha_brush);
 		}
+		dc->RestoreDC(state);
 	}
 	return true;
 }
@@ -202,6 +228,7 @@ void Canvas::open_lib_gdi(void) {
 		LIB_MEMBER(rectangle),
 		LIB_MEMBER(ellipse),
 		LIB_MEMBER(pixel),
+		LIB_MEMBER(text),
 		{ 0 }
 	};
 
@@ -270,37 +297,40 @@ void Canvas::translate_point(POINT& p) {
 	}
 }
 
-class DC_state {
-	CDC* dc;
-	int dc_store;
 
+Canvas::DC_state::DC_state(CDC* pdc, lua_State* ls, int index) : dc(pdc), dc_store(0) {
+	index = lua_absindex(ls, index);
+	if (!lua_istable(ls, index))
+		return;
 
-public:
-	DC_state(CDC* pdc,lua_State* ls,int index) : dc(nullptr), dc_store(0) {
-		index = lua_absindex(ls,index);
-		if (!lua_istable(ls, index))
-			return;
+	static const char* properties[] = { "pen","brush",nullptr };
 
-		static const char* properties[] = { "pen","brush",nullptr };
-
-		lua_pushnil(ls);
-		while (lua_next(ls, index)) {
-			switch (luaL_checkoption(ls, -2, NULL, properties)) {
-			case 0:	//pen
-				break;
-			case 1:	//brush
-				break;
-			}
+	lua_pushnil(ls);
+	while (lua_next(ls, index)) {
+		switch (luaL_checkoption(ls, -2, NULL, properties)) {
+		case 0:	//pen
+			set();
+			dc->SetDCPenColor(to_color(ls, -1));
+			break;
+		case 1:	//brush
+			set();
+			dc->SetDCBrushColor(to_color(ls, -1));
+			break;
 		}
-
-
-
+		lua_pop(ls, 1);
 	}
-	~DC_state(void) {
+
+}
+
+void Canvas::DC_state::set(void) {
+	if (!dc_store)
+		dc_store = dc->SaveDC();
+}
+
+Canvas::DC_state::~DC_state(void) {
 		if (dc && dc_store)
 			dc->RestoreDC(dc_store);
 	}
-};
 
 
 #define LAPI(F) int Canvas:: F(lua_State* ls)
@@ -311,7 +341,7 @@ void Canvas::parse_config(void) {
 	lua_pushnil(ls);
 	while (lua_next(ls, -2)) {
 
-		static const char* config[] = { "size","stretch","axis","anime","pen","brush",nullptr };
+		static const char* config[] = { "size","stretch","axis","anime","pen","brush","text",nullptr };
 		static const char* axis_config[] = { "screen","world",nullptr };
 
 		switch (luaL_checkoption(ls, -2, NULL, config)) {
@@ -346,6 +376,9 @@ void Canvas::parse_config(void) {
 		case 5:	//brush
 			color_brush = to_color(ls,-1);
 			break;
+		case 6:	//text
+			color_text = to_color(ls, -1);
+			break;
 		}
 
 		lua_pop(ls, 1);
@@ -368,7 +401,7 @@ LAPI(fill) {
 	GET_THIS;
 
 	CRect rect;
-	DWORD color = This->color_brush;
+	COLORREF color = This->color_brush;
 
 	if (lua_gettop(ls) > 1) {
 		rect = { (int)luaL_checkinteger(ls, 1), (int)luaL_checkinteger(ls, 2), (int)luaL_checkinteger(ls, 3), (int)luaL_checkinteger(ls, 4) };
@@ -393,8 +426,8 @@ LAPI(line) {
 
 	This->translate_point(from);
 	This->translate_point(to);
-	//TODO
-	//DC_state state(&This->mdc, pid);
+
+	DC_state state(&This->mdc, ls, 3);
 	
 
 	This->mdc.MoveTo(from);
@@ -415,8 +448,8 @@ LAPI(rectangle) {
 
 	RECT rect;
 	get_rect(rect, from, to);
-	//TODO
-	//DC_state state(&This->mdc, pid);
+
+	DC_state state(&This->mdc, ls, 3);
 
 	This->mdc.Rectangle(&rect);
 
@@ -434,8 +467,8 @@ LAPI(ellipse) {
 
 	RECT rect;
 	get_rect(rect, from, to);
-	//TODO
-	//DC_state state(&This->mdc, pid);
+
+	DC_state state(&This->mdc, ls, 3);
 
 	This->mdc.Ellipse(&rect);
 
@@ -451,6 +484,19 @@ LAPI(pixel) {
 	COLORREF color = to_color(ls, 2);
 
 	This->mdc.SetPixelV(p.x, p.y, color);
+	return 0;
+}
+
+LAPI(text) {
+	GET_THIS;
+	size_t len = 0;
+	POINT p;
+	to_point(p, ls, 1);
+	This->translate_point(p);
+
+	CA2T str(luaL_checklstring(ls, 2, &len));
+
+	This->mdc.TextOut(p.x, p.y, (LPCTSTR)str);
 	return 0;
 }
 

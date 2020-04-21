@@ -6,6 +6,8 @@
 #include "LuaCanvas.h"
 #include "LuaCanvasView.h"
 
+#include "resource.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif

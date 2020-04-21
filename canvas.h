@@ -10,6 +10,8 @@ private:
 	CDC mdc;
 	CBitmap bmp;
 	SIZE size;
+	CBitmap alpha_bmp;
+	CBrush alpha_brush;
 	int dc_store;
 	size_t index;
 
@@ -18,10 +20,22 @@ private:
 	bool stretch;
 	COLORREF color_pen;
 	COLORREF color_brush;
+	COLORREF color_text;
 
 	reporter_type reporter_fun;
 	void* reporter_arg;
 
+private:
+	class DC_state {
+		CDC* dc;
+		int dc_store;
+
+		void set(void);
+
+	public:
+		DC_state(CDC*, lua_State*, int);
+		~DC_state(void);
+	};
 
 private:
 	int init(CDC*,CRect&);
@@ -43,6 +57,7 @@ private:
 	LAPI(rectangle);
 	LAPI(ellipse);
 	LAPI(pixel);
+	LAPI(text);
 
 #undef LAPI
 public:
