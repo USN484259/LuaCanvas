@@ -109,12 +109,16 @@ int Canvas::init(CDC* dc,CRect& rect) {
 		mdc.SetDCPenColor(color_pen);
 		mdc.SetDCBrushColor(color_brush);
 		mdc.SetTextColor(color_text);
+		CRect rect{ 0,0,size.cx,size.cy };
+		mdc.FillSolidRect(&rect, color_brush);
 		open_lib_gdi();
 		index = 0;
 		res = 0;
 	} while (false);
 
 	lua_pop(ls, 1);
+
+
 	return res;
 }
 
@@ -244,14 +248,55 @@ void Canvas::open_lib_gdi(void) {
 void Canvas::to_point(POINT& res,lua_State* ls,int id) {
 	id = lua_absindex(ls, id);
 
+	int got = 0;
+
 	luaL_checktype(ls, id, LUA_TTABLE);
-	lua_pushinteger(ls, 1);
-	lua_gettable(ls, id);
-	res.x = luaL_checkinteger(ls, -1);
-	lua_pushinteger(ls, 2);
-	lua_gettable(ls, id);
-	res.y = luaL_checkinteger(ls, -1);
-	lua_pop(ls, 2);
+
+	lua_pushnil(ls);
+	while (lua_next(ls, id)) {
+		switch (lua_type(ls, -2)) {
+		case LUA_TNUMBER:
+		{
+			int i = luaL_checkinteger(ls, -2);
+			long v = luaL_checkinteger(ls, -1);
+			switch (i) {
+			case 1:
+				res.x = v;
+				got |= 1;
+				break;
+			case 2:
+				res.y = v;
+				got |= 2;
+				break;
+			}
+			break;
+		}
+		case LUA_TSTRING:
+		{
+			const char* s = luaL_checkstring(ls, -2);
+			long v = luaL_checkinteger(ls, -1);
+
+			if (*s && 0 == *(s + 1)) {
+				switch (toupper(*s)) {
+				case 'X':
+					res.x = v;
+					got |= 1;
+					break;
+				case 'Y':
+					res.y = v;
+					got |= 2;
+					break;
+				}
+			}
+			break;
+		}
+		}
+
+		lua_pop(ls,1);
+	}
+
+	if (got != 3)
+		luaL_argerror(ls, id, "Too few arguments in Point");
 }
 
 void Canvas::get_rect(RECT& rect,const POINT& a,const POINT& b) {

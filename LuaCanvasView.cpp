@@ -116,7 +116,9 @@ void CLuaCanvasView::OnFileClose()
 {
 	timer_stop();
 	canvas.reset();
-	//TODO change title
+	title(nullptr);
+	InvalidateRect(NULL);
+	UpdateWindow();
 }
 
 
@@ -133,9 +135,15 @@ void CLuaCanvasView::OnFileOpen()
 			GetClientRect(&rect);
 
 			CT2A str(filename);
-			canvas.load(str, dc, rect);
+			bool res = canvas.load(str, dc, rect);
 
 			ReleaseDC(dc);
+
+			if (res) {
+				title(filename);
+				InvalidateRect(NULL);
+				UpdateWindow();
+			}
 		}
 	}
 
@@ -171,6 +179,15 @@ void CLuaCanvasView::OnTimer(UINT_PTR nIDEvent)
 	CWnd::OnTimer(nIDEvent);
 }
 
+void CLuaCanvasView::title(LPCTSTR str) {
+	CString tit(_TEXT("LuaCanvas"));
+
+	if (str) {
+		tit.Append(_TEXT(" - "));
+		tit.Append(str);
+	}
+	GetParentFrame()->SetWindowText(tit);
+}
 
 //void CLuaCanvasView::OnSizing(UINT fwSide, LPRECT pRect)
 //{

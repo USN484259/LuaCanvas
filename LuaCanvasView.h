@@ -24,7 +24,7 @@ public:
 private:
 	void timer_stop(void);
 	void timer_start(DWORD);
-
+	void title(LPCTSTR);
 public:
 	static void on_report(const char*, void*);
 
