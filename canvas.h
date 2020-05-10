@@ -18,6 +18,7 @@ private:
 	DWORD interval;
 	bool world_axis;
 	bool stretch;
+	bool interactive;
 	COLORREF color_pen;
 	COLORREF color_brush;
 	COLORREF color_text;
@@ -67,6 +68,7 @@ public:
 	void reset(void);
 	bool load(const char*,CDC*,CRect&);
 	bool run(void);
+	bool message(const char*, int);
 	bool draw(CDC*,CRect&);
 	void clear(void);
 

@@ -6,6 +6,8 @@
 #pragma once
 
 #include "canvas.h"
+#include <unordered_map>
+#include <string>
 
 // CLuaCanvasView window
 
@@ -18,6 +20,9 @@ public:
 	CLuaCanvasView();
 
 // Attributes
+private:
+	static const std::unordered_map<char, const char*> key_mapping;
+
 public:
 
 // Operations
@@ -25,6 +30,7 @@ private:
 	void timer_stop(void);
 	void timer_start(DWORD);
 	void title(LPCTSTR);
+	static void key_translate(std::string&,char);
 public:
 	static void on_report(const char*, void*);
 
@@ -49,5 +55,7 @@ public:
 	afx_msg void OnClose();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 //	afx_msg void OnSizing(UINT fwSide, LPRECT pRect);
+	afx_msg void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
+	afx_msg void OnKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags);
 };
 

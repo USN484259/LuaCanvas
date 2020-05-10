@@ -5,13 +5,44 @@
 #include "stdafx.h"
 #include "LuaCanvas.h"
 #include "LuaCanvasView.h"
-
+#include <cctype>
 #include "resource.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
+
+
+const std::unordered_map<char, const char*> CLuaCanvasView::key_mapping = {
+	{VK_BACK,"backspace"},
+	{VK_TAB,"tab"},
+	{VK_RETURN,"enter"},
+	{VK_SHIFT,"shift"},
+	{VK_CONTROL,"ctrl"},
+	{VK_ESCAPE,"esc"},
+	{VK_SPACE," "},
+	{VK_PRIOR,"pageup"},
+	{VK_NEXT,"pagedown"},
+	{VK_END,"end"},
+	{VK_HOME,"home"},
+	{VK_LEFT,"left"},
+	{VK_RIGHT,"right"},
+	{VK_UP,"up"},
+	{VK_DOWN,"down"},
+	{VK_DELETE,"delete"},
+	{VK_OEM_1,";"},
+	{VK_OEM_PLUS,"="},
+	{VK_OEM_COMMA,","},
+	{VK_OEM_MINUS,"-"},
+	{VK_OEM_PERIOD,"."},
+	{VK_OEM_2,"/"},
+	{VK_OEM_3,"`"},
+	{VK_OEM_4,"["},
+	{VK_OEM_5,"\\"},
+	{VK_OEM_6,"]"},
+	{VK_OEM_7,"\'"}
+};
 
 // CLuaCanvasView
 
@@ -35,6 +66,8 @@ BEGIN_MESSAGE_MAP(CLuaCanvasView, CWnd)
 	ON_WM_CLOSE()
 	ON_WM_TIMER()
 //	ON_WM_SIZING()
+ON_WM_KEYDOWN()
+ON_WM_KEYUP()
 END_MESSAGE_MAP()
 
 
@@ -194,3 +227,41 @@ void CLuaCanvasView::title(LPCTSTR str) {
 //	//CWnd::OnSizing(fwSide, pRect);
 //
 //}
+
+void CLuaCanvasView::key_translate(std::string& res, char c) {
+	using namespace std;
+	res.clear();
+	if (isupper((byte)c) || isdigit((byte)c)) {
+		res.append(1, c);
+		return;
+	}
+	auto it = key_mapping.find(c);
+	if (it != key_mapping.cend())
+		res.append(it->second);
+
+}
+
+void CLuaCanvasView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+
+	//CWnd::OnKeyDown(nChar, nRepCnt, nFlags);
+	std::string str;
+	key_translate(str, nChar);
+	if (!str.empty())
+		canvas.message(str.c_str(), 1);
+
+}
+
+
+void CLuaCanvasView::OnKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+
+	//CWnd::OnKeyUp(nChar, nRepCnt, nFlags);
+	std::string str;
+	key_translate(str, nChar);
+	if (!str.empty())
+		canvas.message(str.c_str(), 0);
+
+}

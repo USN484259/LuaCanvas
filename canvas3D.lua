@@ -8,10 +8,14 @@ local function D3D_transform(p,t)
 	return r
 end
 
+local function round(p)
+	return {math.floor(p[1]),math.floor(p[2]),math.floor(p[3])}
+end
+
 local pos = {0,0,0}
-local pitch = - math.pi / 2
+local pitch = 0
 local yaw = 0
-local focus = 0
+local focus = 1
 
 
 local function rotate_z()
@@ -26,8 +30,8 @@ local function rotate_z()
 end
 
 local function rotate_x()
-	local c = math.cos(math.pi/2 - pitch)
-	local s = math.sin(math.pi/2 - pitch)
+	local c = math.cos(-pitch)
+	local s = math.sin(-pitch)
 	return {
 		1,0,0,0,
 		0,c,s,0,
@@ -45,14 +49,41 @@ local function move()
 	}
 end
 
+local function proj()
+	return {
+		1,0,0,0,
+		0,1,0,0,
+		0,0,0,1/focus,
+		0,0,0,0
+	}
+end
+
+local function point(p,c)
+	p = D3D_transform(p,move())
+	p = D3D_transform(p,rotate_z())
+	p = D3D_transform(p,rotate_x())
+	p = D3D_transform(p,proj())
+	if c then
+		gdi.pixel(round(p),{pen = c})
+	end
+	return p
+end
+
+local function line(a,b,c)
+	local p = point(a)
+	local q = point(b)
+
+	if c then
+		gdi.line(round(p),round(q),{pen = c})
+	end
+	return p,q
+end
+
+
 
 return {
-	point = function(p)
-		p = D3D_transform(p,move())
-		p = D3D_transform(p,rotate_z())
-		p = D3D_transform(p,rotate_x())
-		return p
-	end,
+	point = point,
+	line = line,
 	camera = function(c)
 		if c.pos then pos = c.pos end
 		if c.pitch then pitch = c.pitch end

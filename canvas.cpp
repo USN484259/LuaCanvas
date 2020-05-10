@@ -79,6 +79,7 @@ int Canvas::init(CDC* dc,CRect& rect) {
 	interval = 0;
 	stretch = false;
 	world_axis = false;
+	interactive = false;
 	color_pen = 0;
 	color_brush = 0x00FFFFFF;
 	color_text = 0;
@@ -143,6 +144,25 @@ bool Canvas::run(void) {
 
 }
 
+bool Canvas::message(const char* name,int state) {
+	if (!operator bool() || 0 == index)
+		return false;
+	
+	lua_pushvalue(ls, -1);
+	//lua_createtable(ls, 0, 1);
+	lua_pushstring(ls, name);
+	if (0 == strcmp(name, "scroll"))
+		lua_pushinteger(ls, state);
+	else
+		lua_pushboolean(ls, state);
+
+
+	int res = lua_pcall(ls, 2, 0, 0);
+	report(res);
+	return res ? true : false;
+
+}
+
 
 bool Canvas::draw(CDC* dc,CRect& rect) {
 	if (!operator bool())
@@ -179,6 +199,7 @@ void Canvas::clear(void) {
 	if (operator bool())
 		mdc.FillSolidRect(0, 0, size.cx, size.cy, RGB(255, 255, 255));
 	index = 0;
+
 }
 size_t Canvas::get_interval(void) const {
 	return interval;
@@ -386,7 +407,7 @@ void Canvas::parse_config(void) {
 	lua_pushnil(ls);
 	while (lua_next(ls, -2)) {
 
-		static const char* config[] = { "size","stretch","axis","anime","pen","brush","text",nullptr };
+		static const char* config[] = { "size","stretch","axis","anime","pen","brush","text","interactive",nullptr };
 		static const char* axis_config[] = { "screen","world",nullptr };
 
 		switch (luaL_checkoption(ls, -2, NULL, config)) {
@@ -423,6 +444,10 @@ void Canvas::parse_config(void) {
 			break;
 		case 6:	//text
 			color_text = to_color(ls, -1);
+			break;
+		case 7:	//interactive
+			luaL_checktype(ls, -1, LUA_TBOOLEAN);
+			interactive = lua_toboolean(ls, -1) ? true : false;
 			break;
 		}
 
