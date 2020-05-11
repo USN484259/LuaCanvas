@@ -67,53 +67,45 @@ local function axis()
 		gdi.line(round(a),round(b),{pen = l[3]})
 	end
 	--]]
+	local c = d3d.camera({focus = 0,trunc = false})
 	
-	d3d.line(camera.pos,{camera.pos[1]+1000,camera.pos[2],camera.pos[3]},{0xFF,0,0})
-	d3d.line(camera.pos,{camera.pos[1],camera.pos[2]+1000,camera.pos[3]},{0,0xFF,0})
-	d3d.line(camera.pos,{camera.pos[1],camera.pos[2],camera.pos[3]+1000},{0,0,0xFF})
+	d3d.line(camera.pos,{camera.pos[1]+100,camera.pos[2],camera.pos[3]},{0xFF,0x60,0x60})
+	--d3d.line(camera.pos,{camera.pos[1]-10000,camera.pos[2],camera.pos[3]},{0xFF,0,0})
 	
+	d3d.line(camera.pos,{camera.pos[1],camera.pos[2]+100,camera.pos[3]},{0x60,0xFF,0x60})
+	--d3d.line(camera.pos,{camera.pos[1],camera.pos[2]-10000,camera.pos[3]},{0,0xFF,0})
+
+	d3d.line(camera.pos,{camera.pos[1],camera.pos[2],camera.pos[3]+100},{0x60,0x60,0xFF})
+	--d3d.line(camera.pos,{camera.pos[1],camera.pos[2],camera.pos[3]-10000},{0,0,0xFF})
+	
+	d3d.camera(c)
 end
 
 
 
-local function draw(index)
+local function draw()
 
-	if index == 0 then
-		camera = {
-			pos = {0,0,0},
-			pitch = 0,
-			yaw = 0,
-			focus = 1
-		}
-		redraw = true
-	end
+		
+	gdi.fill()
+	d3d.camera(camera)
 	
-	if redraw then
-		redraw = false
-		
-		gdi.fill()
-		d3d.camera(camera)
-		
-		axis()
-		
-		local x,y
-		
-		for y = -2,2,1 do
-			for x = -2,2,1 do
-				cube({x*200,y*200,0})
-			end
+	axis()
+	
+	local x,y
+	
+	for y = -2,2,1 do
+		for x = -2,2,1 do
+			cube({x*200,y*200,0})
 		end
-		local str = "pos "..camera.pos[1]..' '..camera.pos[2]..' '..camera.pos[3]
-		gdi.text({-400,300},str)
-		str = "view "..camera.pitch..' '..camera.yaw..' '..camera.focus
-		gdi.text({-400,280},str)
-		--camera.pitch = camera.pitch - math.pi/180
-		--camera.yaw = camera.yaw + math.pi/90
-		
-		
-		--if index < 180 then return index + 1 end
 	end
-	return index + 1
+	local str = "pos "..camera.pos[1]..' '..camera.pos[2]..' '..camera.pos[3]
+	gdi.text({-400,300},str)
+	str = "view "..camera.pitch..' '..camera.yaw..' '..camera.focus
+	gdi.text({-400,280},str)
+
+	d3d.line({-50,0,0},{-50,0,10000},0)
+	d3d.line({50,0,0},{50,0,10000},0)
+	
 end
 
 
@@ -130,11 +122,11 @@ local function camera_move(k)
 		local x = 0
 		local y = 0
 		if k == "W" then
-			x = -10 * math.cos(camera.yaw-math.pi/2)
-			y = -10 * math.sin(camera.yaw-math.pi/2)
-		elseif k == "S" then
 			x = 10 * math.cos(camera.yaw-math.pi/2)
 			y = 10 * math.sin(camera.yaw-math.pi/2)
+		elseif k == "S" then
+			x = -10 * math.cos(camera.yaw-math.pi/2)
+			y = -10 * math.sin(camera.yaw-math.pi/2)
 		elseif k == "A" then
 			x = -10 * math.cos(camera.yaw)
 			y = -10 * math.sin(camera.yaw)
@@ -154,26 +146,36 @@ local function message(k,t)
 	if string.find("WASDRFZX",k) then
 		camera_move(k)
 	elseif k == "up" then
-		camera.pitch = math.max(-math.pi/2,camera.pitch - math.pi/180)
-	elseif k == "down" then
 		camera.pitch = math.min(math.pi/2,camera.pitch + math.pi/180)
+	elseif k == "down" then
+		camera.pitch = math.max(-math.pi/2,camera.pitch - math.pi/180)
 	elseif k == "left" then
-		camera.yaw = camera.yaw + math.pi/180
-	elseif k == "right" then
 		camera.yaw = camera.yaw - math.pi/180
+	elseif k == "right" then
+		camera.yaw = camera.yaw + math.pi/180
 	else
 		return
 	end
 
-	redraw = true
-
+	return true
 end
 
 
 local function entry(arg1,arg2)
-	if type(arg1) == "number" then return draw(arg1) end
-	if type(arg1) == "string" then return message(arg1,arg2) end
-
+	if type(arg1) == "string" and message(arg1,arg2) then
+		draw()
+		return true
+	end
+	if type(arg1) == "number" and arg1 == 0 then
+		camera = {
+			pos = {0,0,0},
+			pitch = 0,
+			yaw = 0,
+			focus = 1
+		}
+		draw()
+		return 1
+	end
 
 end
 
@@ -182,7 +184,6 @@ end
 return entry,{
 	size = {800,600},
 	brush = 0xFFFFFF,
-	anime = 40,
 	axis = "world",
 	interactive = true
 }

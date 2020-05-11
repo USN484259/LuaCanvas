@@ -122,14 +122,17 @@ void CLuaCanvasView::OnPaint()
 		dc.FillSolidRect(&rect, RGB(255, 255, 255));
 }
 
+void CLuaCanvasView::redraw(void) {
+	InvalidateRect(NULL);
+	UpdateWindow();
+}
 
 
 void CLuaCanvasView::OnCanvasClear()
 {
 	timer_stop();
 	canvas.clear();
-	InvalidateRect(NULL);
-	UpdateWindow();
+	redraw();
 
 }
 
@@ -138,8 +141,7 @@ void CLuaCanvasView::OnCanvasDraw()
 {
 	// TODO: 在此添加命令处理程序代码
 	bool res = canvas.run();
-	InvalidateRect(NULL);
-	UpdateWindow();
+	redraw();
 	if (res)
 		timer_start(canvas.get_interval());
 }
@@ -150,8 +152,7 @@ void CLuaCanvasView::OnFileClose()
 	timer_stop();
 	canvas.reset();
 	title(nullptr);
-	InvalidateRect(NULL);
-	UpdateWindow();
+	redraw();
 }
 
 
@@ -174,8 +175,7 @@ void CLuaCanvasView::OnFileOpen()
 
 			if (res) {
 				title(filename);
-				InvalidateRect(NULL);
-				UpdateWindow();
+				redraw();
 			}
 		}
 	}
@@ -204,8 +204,7 @@ void CLuaCanvasView::OnTimer(UINT_PTR nIDEvent)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if (nIDEvent == timer) {
 		bool res = canvas.run();
-		InvalidateRect(NULL);
-		UpdateWindow();
+		redraw();
 		if (!res)
 			timer_stop();
 	}
@@ -249,7 +248,8 @@ void CLuaCanvasView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 	std::string str;
 	key_translate(str, nChar);
 	if (!str.empty())
-		canvas.message(str.c_str(), 1);
+		if (canvas.message(str.c_str(), 1))
+			redraw();
 
 }
 
@@ -262,6 +262,7 @@ void CLuaCanvasView::OnKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
 	std::string str;
 	key_translate(str, nChar);
 	if (!str.empty())
-		canvas.message(str.c_str(), 0);
+		if (canvas.message(str.c_str(), 0))
+			redraw();
 
 }

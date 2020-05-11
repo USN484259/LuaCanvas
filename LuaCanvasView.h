@@ -30,6 +30,7 @@ private:
 	void timer_stop(void);
 	void timer_start(DWORD);
 	void title(LPCTSTR);
+	void redraw(void);
 	static void key_translate(std::string&,char);
 public:
 	static void on_report(const char*, void*);

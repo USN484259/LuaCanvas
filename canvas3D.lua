@@ -8,14 +8,12 @@ local function D3D_transform(p,t)
 	return r
 end
 
-local function round(p)
-	return {math.floor(p[1]),math.floor(p[2]),math.floor(p[3])}
-end
 
 local pos = {0,0,0}
 local pitch = 0
 local yaw = 0
 local focus = 1
+local trunc = true
 
 
 local function rotate_z()
@@ -30,8 +28,8 @@ local function rotate_z()
 end
 
 local function rotate_x()
-	local c = math.cos(-pitch)
-	local s = math.sin(-pitch)
+	local c = math.cos(-math.pi/2 + pitch)
+	local s = math.sin(-math.pi/2 + pitch)
 	return {
 		1,0,0,0,
 		0,c,s,0,
@@ -49,32 +47,59 @@ local function move()
 	}
 end
 
-local function proj()
-	return {
-		1,0,0,0,
-		0,1,0,0,
-		0,0,0,1/focus,
-		0,0,0,0
-	}
+local function project(p)
+	if trunc and p[3] < 0 then return end
+	if focus <= 0 then return {p[1],p[2]} end
+	local factor = 1 + math.abs(p[3])/focus/256
+	return {p[1]/factor,p[2]/factor}
 end
 
-local function point(p,c)
+local function translate(p)
 	p = D3D_transform(p,move())
 	p = D3D_transform(p,rotate_z())
 	p = D3D_transform(p,rotate_x())
-	p = D3D_transform(p,proj())
-	if c then
-		gdi.pixel(round(p),{pen = c})
-	end
 	return p
 end
 
+local function point(p,c)
+		p = translate(p)
+		p = project(p)
+		if p and c then
+			gdi.pixel(p,{pen = c})
+		end
+		return p
+end
+
+local function line_trunc(p,r)
+	local dx = r[1] - p[1]
+	local dy = r[2] - p[2]
+	local dz = r[3] - p[3]
+	
+	local ratio = math.abs(p[3]) / dz
+	
+	return {p[1] + dx*ratio, p[2] + dy*ratio}
+
+end
+
 local function line(a,b,c)
-	local p = point(a)
-	local q = point(b)
+	a = translate(a)
+	b = translate(b)
+	
+	local p = project(a)
+	local q = project(b)
+	
+	if p or q then
+	else return end
+	
+	if not p then
+		p = line_trunc(a,b)
+	elseif not q then
+		q = line_trunc(b,a)
+	end
+	
 
 	if c then
-		gdi.line(round(p),round(q),{pen = c})
+		gdi.line(p,q,{pen = c})
 	end
 	return p,q
 end
@@ -82,12 +107,22 @@ end
 
 
 return {
+translate = translate,
 	point = point,
 	line = line,
 	camera = function(c)
+		local r = {
+			pos = pos,
+			pitch = pitch,
+			yaw = yaw,
+			focus = focus,
+			trunc = trunc
+		}
 		if c.pos then pos = c.pos end
 		if c.pitch then pitch = c.pitch end
 		if c.yaw then yaw = c.yaw end
 		if c.focus then focus = c.focus end
+		if nil ~= c.trunc then trunc = c.trunc end
+		return r
 	end
 }

@@ -156,10 +156,18 @@ bool Canvas::message(const char* name,int state) {
 	else
 		lua_pushboolean(ls, state);
 
+	mdc.SaveDC();
 
-	int res = lua_pcall(ls, 2, 0, 0);
+	int res = lua_pcall(ls, 2, 1, 0);
+
+	mdc.RestoreDC(-1);
+
 	report(res);
-	return res ? true : false;
+	
+	int redraw = lua_toboolean(ls, -1);
+	lua_pop(ls, 1);
+
+	return redraw ? true : false;
 
 }
 
@@ -279,7 +287,7 @@ void Canvas::to_point(POINT& res,lua_State* ls,int id) {
 		case LUA_TNUMBER:
 		{
 			int i = luaL_checkinteger(ls, -2);
-			long v = luaL_checkinteger(ls, -1);
+			long v = (long)luaL_checknumber(ls, -1);
 			switch (i) {
 			case 1:
 				res.x = v;
@@ -295,7 +303,7 @@ void Canvas::to_point(POINT& res,lua_State* ls,int id) {
 		case LUA_TSTRING:
 		{
 			const char* s = luaL_checkstring(ls, -2);
-			long v = luaL_checkinteger(ls, -1);
+			long v = (long)luaL_checknumber(ls, -1);
 
 			if (*s && 0 == *(s + 1)) {
 				switch (toupper(*s)) {
