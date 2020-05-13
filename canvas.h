@@ -1,6 +1,7 @@
 #pragma once
 #include "stdafx.h"
 #include "lua.h"
+#include <string>
 
 class Canvas {
 public:
@@ -25,6 +26,7 @@ private:
 
 	reporter_type reporter_fun;
 	void* reporter_arg;
+	POINT cursor_pos;
 
 private:
 	class DC_state {
@@ -53,6 +55,8 @@ private:
 	//static int open_lib_gdi(lua_State*);
 	//static int line(lua_State*);
 	LAPI(area);
+	LAPI(axis);
+	LAPI(cursor);
 	LAPI(fill);
 	LAPI(line);
 	LAPI(rectangle);
@@ -68,7 +72,8 @@ public:
 	void reset(void);
 	bool load(const char*,CDC*,CRect&);
 	bool run(void);
-	bool message(const char*, int);
+	void cursor(const POINT&, const RECT&);
+	bool message(const std::string&, int);
 	bool draw(CDC*,CRect&);
 	void clear(void);
 

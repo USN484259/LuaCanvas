@@ -68,6 +68,13 @@ BEGIN_MESSAGE_MAP(CLuaCanvasView, CWnd)
 //	ON_WM_SIZING()
 ON_WM_KEYDOWN()
 ON_WM_KEYUP()
+ON_WM_LBUTTONDOWN()
+ON_WM_LBUTTONUP()
+ON_WM_MBUTTONDOWN()
+ON_WM_MBUTTONUP()
+ON_WM_RBUTTONDOWN()
+ON_WM_RBUTTONUP()
+ON_WM_MOUSEWHEEL()
 END_MESSAGE_MAP()
 
 
@@ -262,7 +269,85 @@ void CLuaCanvasView::OnKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
 	std::string str;
 	key_translate(str, nChar);
 	if (!str.empty())
-		if (canvas.message(str.c_str(), 0))
+		if (canvas.message(str, 0))
 			redraw();
 
+}
+
+
+void CLuaCanvasView::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	RECT rect;
+	GetClientRect(&rect);
+	canvas.cursor(point, rect);
+	if (canvas.message("mouse", 1))
+		redraw();
+}
+
+
+void CLuaCanvasView::OnLButtonUp(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	RECT rect;
+	GetClientRect(&rect);
+	canvas.cursor(point, rect);
+	if (canvas.message("mouse", -1))
+		redraw();
+}
+
+
+void CLuaCanvasView::OnMButtonDown(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	RECT rect;
+	GetClientRect(&rect);
+	canvas.cursor(point, rect);
+	if (canvas.message("mouse", 2))
+		redraw();
+}
+
+
+void CLuaCanvasView::OnMButtonUp(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	RECT rect;
+	GetClientRect(&rect);
+	canvas.cursor(point, rect);
+	if (canvas.message("mouse", -2))
+		redraw();
+}
+
+
+void CLuaCanvasView::OnRButtonDown(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	RECT rect;
+	GetClientRect(&rect);
+	canvas.cursor(point, rect);
+	if (canvas.message("mouse", 3))
+		redraw();
+}
+
+
+void CLuaCanvasView::OnRButtonUp(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	RECT rect;
+	GetClientRect(&rect);
+	canvas.cursor(point, rect);
+	if (canvas.message("mouse", -3))
+		redraw();
+}
+
+
+BOOL CLuaCanvasView::OnMouseWheel(UINT nFlags, short zDelta, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	RECT rect;
+	GetClientRect(&rect);
+	canvas.cursor(point, rect);
+	if (canvas.message("scroll", zDelta))
+		redraw();
+	return CWnd::OnMouseWheel(nFlags, zDelta, point);
 }

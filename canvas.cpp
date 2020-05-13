@@ -114,6 +114,7 @@ int Canvas::init(CDC* dc,CRect& rect) {
 		mdc.FillSolidRect(&rect, color_brush);
 		open_lib_gdi();
 		index = 0;
+		cursor_pos = { 0 };
 		res = 0;
 	} while (false);
 
@@ -144,14 +145,35 @@ bool Canvas::run(void) {
 
 }
 
-bool Canvas::message(const char* name,int state) {
+void Canvas::cursor(const POINT& p, const RECT& rect) {
+	long x = p.x;
+	long y = p.y;
+
+	if (stretch) {
+		x = (long)(x / (double)(rect.right - rect.left) * size.cx);
+		y = (long)(y / (double)(rect.bottom - rect.top) * size.cy);
+	}
+	else {
+		x -= (rect.right - rect.left - size.cx) / 2;
+		y -= (rect.bottom - rect.top - size.cy) / 2;
+	}
+
+	if (world_axis) {
+		x -= size.cx / 2;
+		y = size.cy / 2 - y;
+	}
+
+	cursor_pos = { x,y };
+}
+
+bool Canvas::message(const std::string& name, int state) {
 	if (!operator bool() || 0 == index)
 		return false;
 	
 	lua_pushvalue(ls, -1);
 	//lua_createtable(ls, 0, 1);
-	lua_pushstring(ls, name);
-	if (0 == strcmp(name, "scroll"))
+	lua_pushstring(ls, name.c_str());
+	if (name == "mouse" || name == "scroll")
 		lua_pushinteger(ls, state);
 	else
 		lua_pushboolean(ls, state);
@@ -207,6 +229,7 @@ void Canvas::clear(void) {
 	if (operator bool())
 		mdc.FillSolidRect(0, 0, size.cx, size.cy, RGB(255, 255, 255));
 	index = 0;
+	cursor_pos = { 0 };
 
 }
 size_t Canvas::get_interval(void) const {
@@ -256,6 +279,8 @@ void Canvas::open_lib_gdi(void) {
 
 	static const luaL_Reg members[] = {
 		LIB_MEMBER(area),
+		LIB_MEMBER(axis),
+		LIB_MEMBER(cursor),
 		LIB_MEMBER(fill),
 		LIB_MEMBER(line),
 		LIB_MEMBER(rectangle),
@@ -474,6 +499,18 @@ LAPI(area) {
 	lua_pushinteger(ls, This->size.cy);
 	return 2;
 }
+LAPI(axis) {
+	GET_THIS;
+	lua_pushstring(ls, This->world_axis ? "world" : "screen");
+
+	return 1;
+}
+LAPI(cursor) {
+	GET_THIS;
+	lua_pushinteger(ls, This->cursor_pos.x);
+	lua_pushinteger(ls, This->cursor_pos.y);
+	return 2;
+}
 
 LAPI(fill) {
 	GET_THIS;
@@ -572,10 +609,14 @@ LAPI(text) {
 	to_point(p, ls, 1);
 	This->translate_point(p);
 
-	CA2T str(luaL_checklstring(ls, 2, &len));
+	CString str(CA2T(luaL_checklstring(ls, 2, &len)));
 
-	This->mdc.TextOut(p.x, p.y, (LPCTSTR)str);
-	return 0;
+	This->mdc.TextOut(p.x, p.y, str);
+
+	CSize text_extent = This->mdc.GetTextExtent(str, str.GetLength());
+	lua_pushinteger(ls, text_extent.cx);
+	lua_pushinteger(ls, text_extent.cy);
+	return 2;
 }
 
 #undef LAPI
