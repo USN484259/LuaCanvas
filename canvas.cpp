@@ -5,7 +5,6 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
-//#include <gdiplus.h>
 
 #pragma comment(lib,"lua-5.3.5.lib")
 
@@ -37,8 +36,6 @@ void Canvas::reset(void) {
 	if (dc_store) {
 		mdc.RestoreDC(dc_store);
 		mdc.DeleteDC();
-		//brush.DeleteObject();
-		//pen.DeleteObject();
 		bmp.DeleteObject();
 		dc_store = 0;
 	}
@@ -79,7 +76,7 @@ int Canvas::init(CDC* dc,CRect& rect) {
 	interval = 0;
 	stretch = false;
 	world_axis = false;
-	interactive = false;
+
 	color_pen = 0;
 	color_brush = 0x00FFFFFF;
 	color_text = 0;
@@ -113,7 +110,7 @@ int Canvas::init(CDC* dc,CRect& rect) {
 		CRect rect{ 0,0,size.cx,size.cy };
 		mdc.FillSolidRect(&rect, color_brush);
 		open_lib_gdi();
-		index = 0;
+
 		cursor_pos = { 0 };
 		res = 0;
 	} while (false);
@@ -124,28 +121,7 @@ int Canvas::init(CDC* dc,CRect& rect) {
 	return res;
 }
 
-
-bool Canvas::run(void) {
-	if (!operator bool())
-		return false;
-	mdc.SaveDC();
-
-
-	lua_pushvalue(ls, -1);
-	lua_pushinteger(ls, index);
-	int res = lua_pcall(ls, 1, 1, 0);
-
-	mdc.RestoreDC(-1);
-
-	report(res);
-
-	index = lua_tointeger(ls, -1);	//returns 0 if not integer
-	lua_pop(ls, 1);
-	return index ? true : false;
-
-}
-
-void Canvas::cursor(const POINT& p, const RECT& rect) {
+void Canvas::set_cursor(const POINT& p, const RECT& rect) {
 	long x = p.x;
 	long y = p.y;
 
@@ -166,13 +142,16 @@ void Canvas::cursor(const POINT& p, const RECT& rect) {
 	cursor_pos = { x,y };
 }
 
-bool Canvas::message(const std::string& name, int state) {
-	if (!operator bool() || 0 == index)
+bool Canvas::run(const std::string& name, int state) {
+	if (!operator bool())
 		return false;
 	
+
 	lua_pushvalue(ls, -1);
 	//lua_createtable(ls, 0, 1);
 	lua_pushstring(ls, name.c_str());
+
+
 	if (name == "mouse" || name == "scroll")
 		lua_pushinteger(ls, state);
 	else
@@ -200,9 +179,6 @@ bool Canvas::draw(CDC* dc,CRect& rect) {
 
 	static const POINT points[] = { {0,300},{300,0},{300,600} };
 
-	//PlgBlt(dc->GetSafeHdc(), points, mdc.GetSafeHdc(), 0, 0, size.cx, size.cy, NULL, 0, 0);
-	//return true;
-
 	if (stretch)
 		dc->StretchBlt(rect.left, rect.top, rect.Width(), rect.Height(), &mdc, 0, 0, size.cx, size.cy, SRCCOPY);
 	else {
@@ -228,7 +204,8 @@ bool Canvas::draw(CDC* dc,CRect& rect) {
 void Canvas::clear(void) {
 	if (operator bool())
 		mdc.FillSolidRect(0, 0, size.cx, size.cy, RGB(255, 255, 255));
-	index = 0;
+	//index = 0;
+	interval = 0;
 	cursor_pos = { 0 };
 
 }
@@ -265,7 +242,6 @@ void Canvas::report(int state) {
 	reporter_fun(msg, reporter_arg);
 }
 
-//#define LIB_MEMBER(F) lua_pushstring(ls,#F), lua_pushlightuserdata(ls,this), lua_pushcclosure(ls,Canvas:: F, 1), lua_settable(ls,-3)
 
 #define LIB_MEMBER(F) {#F,Canvas:: F}
 
@@ -278,8 +254,8 @@ void Canvas::open_lib_gdi(void) {
 
 
 	static const luaL_Reg members[] = {
-		LIB_MEMBER(area),
-		LIB_MEMBER(axis),
+		LIB_MEMBER(get),
+		LIB_MEMBER(timer),
 		LIB_MEMBER(cursor),
 		LIB_MEMBER(fill),
 		LIB_MEMBER(line),
@@ -402,7 +378,7 @@ Canvas::DC_state::DC_state(CDC* pdc, lua_State* ls, int index) : dc(pdc), dc_sto
 	if (!lua_istable(ls, index))
 		return;
 
-	static const char* properties[] = { "pen","brush",nullptr };
+	static const char* properties[] = { "pen","brush","text",nullptr };
 
 	lua_pushnil(ls);
 	while (lua_next(ls, index)) {
@@ -415,6 +391,9 @@ Canvas::DC_state::DC_state(CDC* pdc, lua_State* ls, int index) : dc(pdc), dc_sto
 			set();
 			dc->SetDCBrushColor(to_color(ls, -1));
 			break;
+		case 2:	//text
+			set();
+			dc->SetTextColor(to_color(ls, -1));
 		}
 		lua_pop(ls, 1);
 	}
@@ -432,79 +411,97 @@ Canvas::DC_state::~DC_state(void) {
 	}
 
 
+
+
+
+void Canvas::parse_config(void) {
+//LAPI(parse_config){
+	//GET_THIS;
+	lua_pushnil(ls);
+	while (lua_next(ls, -2)) {
+		int pos = lua_gettop(ls);
+		lua_pushlightuserdata(ls, this);
+		lua_pushcclosure(ls, lfun_config, 1);
+		lua_pushvalue(ls, pos - 1);
+		lua_pushvalue(ls, pos);
+		int res = lua_pcall(ls, 2, 0, 0);
+		lua_pop(ls, res == LUA_OK ? 1 : 2);
+	}
+}
+
 #define LAPI(F) int Canvas:: F(lua_State* ls)
 #define GET_THIS Canvas* This = (Canvas*)lua_touserdata(ls,lua_upvalueindex(1))
 
 
-void Canvas::parse_config(void) {
-	lua_pushnil(ls);
-	while (lua_next(ls, -2)) {
+LAPI(lfun_config) {
+	GET_THIS;
+	static const char* config[] = { "size","stretch","axis","pen","brush","text",nullptr };
+	static const char* axis_config[] = { "screen","world",nullptr };
 
-		static const char* config[] = { "size","stretch","axis","anime","pen","brush","text","interactive",nullptr };
-		static const char* axis_config[] = { "screen","world",nullptr };
-
-		switch (luaL_checkoption(ls, -2, NULL, config)) {
-		case 0:	//size
-		{
-			POINT p;
-			to_point(p, ls, -1);
-			if (p.x > 0 && p.y > 0)
-				size = { p.x, p.y };
-			break;
-		}
-		case 1:	//stretch
-			luaL_checktype(ls, -1, LUA_TBOOLEAN);
-			stretch = lua_toboolean(ls, -1) ? true : false;
-			break;
-		case 2:	//axis
-			switch (luaL_checkoption(ls, -1, NULL, axis_config)) {
-			case 0:	//screen
-				world_axis = false;
-				break;
-			case 1:	//world
-				world_axis = true;
-				break;
-			}
-			break;
-		case 3:	//anime
-			interval = luaL_checkinteger(ls, -1);
-			break;
-		case 4:	//pen
-			color_pen = to_color(ls,-1);
-			break;
-		case 5:	//brush
-			color_brush = to_color(ls,-1);
-			break;
-		case 6:	//text
-			color_text = to_color(ls, -1);
-			break;
-		case 7:	//interactive
-			luaL_checktype(ls, -1, LUA_TBOOLEAN);
-			interactive = lua_toboolean(ls, -1) ? true : false;
-			break;
-		}
-
-		lua_pop(ls, 1);
+	switch (luaL_checkoption(ls, -2, NULL, config)) {
+	case 0:	//size
+	{
+		POINT p;
+		to_point(p, ls, -1);
+		if (p.x > 0 && p.y > 0)
+			This->size = { p.x, p.y };
+		break;
 	}
+	case 1:	//stretch
+		luaL_checktype(ls, -1, LUA_TBOOLEAN);
+		This->stretch = lua_toboolean(ls, -1) ? true : false;
+		break;
+	case 2:	//axis
 
-
+		switch (luaL_checkoption(ls, -1, NULL, axis_config)) {
+		case 0:	//screen
+			This->world_axis = false;
+			break;
+		case 1:	//world
+			This->world_axis = true;
+			break;
+		}
+		break;
+	case 3:	//pen
+		This->color_pen = to_color(ls, -1);
+		break;
+	case 4:	//brush
+		This->color_brush = to_color(ls, -1);
+		break;
+	case 5:	//text
+		This->color_text = to_color(ls, -1);
+		break;
+	}
+	return 0;
 }
 
 
 
-LAPI(area) {
-	GET_THIS;
-	
-	lua_pushinteger(ls, This->size.cx);
-	lua_pushinteger(ls, This->size.cy);
-	return 2;
-}
-LAPI(axis) {
-	GET_THIS;
-	lua_pushstring(ls, This->world_axis ? "world" : "screen");
 
+LAPI(get) {
+	GET_THIS;
+	std::string str = luaL_checkstring(ls, -1);
+	if (str == "size") {
+		lua_pushinteger(ls, This->size.cx);
+		lua_pushinteger(ls, This->size.cy);
+		return 2;
+	}
+	if (str == "axis") {
+		lua_pushstring(ls, This->world_axis ? "world" : "screen");
+		return 1;
+	}
+	return 0;
+}
+
+LAPI(timer) {
+	GET_THIS;
+	auto old_interval = This->interval;
+	auto v = luaL_optinteger(ls, -1,old_interval);
+	This->interval = max(0, v);
+	lua_pushinteger(ls, old_interval);
 	return 1;
 }
+
 LAPI(cursor) {
 	GET_THIS;
 	lua_pushinteger(ls, This->cursor_pos.x);
@@ -609,13 +606,16 @@ LAPI(text) {
 	to_point(p, ls, 1);
 	This->translate_point(p);
 
-	CString str(CA2T(luaL_checklstring(ls, 2, &len)));
+	CA2T str(luaL_checklstring(ls, 2, &len));
 
-	This->mdc.TextOut(p.x, p.y, str);
+	DC_state state(&This->mdc, ls, 3);
 
-	CSize text_extent = This->mdc.GetTextExtent(str, str.GetLength());
+	This->mdc.TextOut(p.x, p.y, (LPCTSTR)str);
+
+	CSize text_extent = This->mdc.GetTextExtent(str, len);
 	lua_pushinteger(ls, text_extent.cx);
 	lua_pushinteger(ls, text_extent.cy);
+
 	return 2;
 }
 

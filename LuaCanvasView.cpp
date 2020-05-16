@@ -46,7 +46,7 @@ const std::unordered_map<char, const char*> CLuaCanvasView::key_mapping = {
 
 // CLuaCanvasView
 
-CLuaCanvasView::CLuaCanvasView() : timer(NULL)
+CLuaCanvasView::CLuaCanvasView() : timer(NULL), interval(0)
 {
 	canvas.reporter(on_report, this);
 }
@@ -94,23 +94,27 @@ BOOL CLuaCanvasView::PreCreateWindow(CREATESTRUCT& cs)
 	return TRUE;
 }
 
-void CLuaCanvasView::timer_stop(void) {
-	if (timer) {
+void CLuaCanvasView::timer_set(DWORD v) {
+	if (v == interval)
+		return;
+	interval = v;
+	if (interval) {
+		if (timer)
+			KillTimer(timer);
+		timer = SetTimer(1, interval, NULL);
+		return;
+	}
+	if (!interval && timer) {
 		KillTimer(timer);
 		timer = NULL;
-	}
-}
-
-void CLuaCanvasView::timer_start(DWORD interval) {
-	if (!interval)
 		return;
-	timer_stop();
-	timer = SetTimer(1, interval, NULL);
+	}
+
 }
 
 void CLuaCanvasView::on_report(const char* msg, void* This) {
 	CA2T str(msg);
-	((CLuaCanvasView*)This)->timer_stop();
+	((CLuaCanvasView*)This)->timer_set(0);
 	((CLuaCanvasView*)This)->MessageBox(str);
 }
 
@@ -137,7 +141,7 @@ void CLuaCanvasView::redraw(void) {
 
 void CLuaCanvasView::OnCanvasClear()
 {
-	timer_stop();
+	timer_set(0);
 	canvas.clear();
 	redraw();
 
@@ -147,16 +151,17 @@ void CLuaCanvasView::OnCanvasClear()
 void CLuaCanvasView::OnCanvasDraw()
 {
 	// TODO: 在此添加命令处理程序代码
-	bool res = canvas.run();
-	redraw();
-	if (res)
-		timer_start(canvas.get_interval());
+	if (canvas.run("draw",0))
+		redraw();
+	timer_set(canvas.get_interval());
+	//if (res)
+	//	timer_start(canvas.get_interval());
 }
 
 
 void CLuaCanvasView::OnFileClose()
 {
-	timer_stop();
+	timer_set(0);
 	canvas.reset();
 	title(nullptr);
 	redraw();
@@ -170,7 +175,7 @@ void CLuaCanvasView::OnFileOpen()
 	if (file_picker.DoModal() == IDOK) {
 		CString filename = file_picker.GetPathName();
 		if (!filename.IsEmpty()) {
-			timer_stop();
+			timer_set(0);
 			CDC* dc = GetDC();
 			CRect rect;
 			GetClientRect(&rect);
@@ -201,7 +206,7 @@ BOOL CLuaCanvasView::OnEraseBkgnd(CDC* pDC)
 void CLuaCanvasView::OnClose()
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	timer_stop();
+	timer_set(0);
 	CWnd::OnClose();
 }
 
@@ -210,10 +215,9 @@ void CLuaCanvasView::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if (nIDEvent == timer) {
-		bool res = canvas.run();
-		redraw();
-		if (!res)
-			timer_stop();
+		if (canvas.run("draw",1))
+			redraw();
+		timer_set(canvas.get_interval());
 	}
 	CWnd::OnTimer(nIDEvent);
 }
@@ -255,8 +259,9 @@ void CLuaCanvasView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 	std::string str;
 	key_translate(str, nChar);
 	if (!str.empty())
-		if (canvas.message(str.c_str(), 1))
+		if (canvas.run(str.c_str(), 1))
 			redraw();
+	timer_set(canvas.get_interval());
 
 }
 
@@ -269,8 +274,9 @@ void CLuaCanvasView::OnKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
 	std::string str;
 	key_translate(str, nChar);
 	if (!str.empty())
-		if (canvas.message(str, 0))
+		if (canvas.run(str, 0))
 			redraw();
+	timer_set(canvas.get_interval());
 
 }
 
@@ -280,9 +286,11 @@ void CLuaCanvasView::OnLButtonDown(UINT nFlags, CPoint point)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	RECT rect;
 	GetClientRect(&rect);
-	canvas.cursor(point, rect);
-	if (canvas.message("mouse", 1))
+	canvas.set_cursor(point, rect);
+	if (canvas.run("mouse", 1))
 		redraw();
+	timer_set(canvas.get_interval());
+
 }
 
 
@@ -291,9 +299,11 @@ void CLuaCanvasView::OnLButtonUp(UINT nFlags, CPoint point)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	RECT rect;
 	GetClientRect(&rect);
-	canvas.cursor(point, rect);
-	if (canvas.message("mouse", -1))
+	canvas.set_cursor(point, rect);
+	if (canvas.run("mouse", -1))
 		redraw();
+	timer_set(canvas.get_interval());
+
 }
 
 
@@ -302,9 +312,11 @@ void CLuaCanvasView::OnMButtonDown(UINT nFlags, CPoint point)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	RECT rect;
 	GetClientRect(&rect);
-	canvas.cursor(point, rect);
-	if (canvas.message("mouse", 2))
+	canvas.set_cursor(point, rect);
+	if (canvas.run("mouse", 2))
 		redraw();
+	timer_set(canvas.get_interval());
+
 }
 
 
@@ -313,9 +325,11 @@ void CLuaCanvasView::OnMButtonUp(UINT nFlags, CPoint point)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	RECT rect;
 	GetClientRect(&rect);
-	canvas.cursor(point, rect);
-	if (canvas.message("mouse", -2))
+	canvas.set_cursor(point, rect);
+	if (canvas.run("mouse", -2))
 		redraw();
+	timer_set(canvas.get_interval());
+
 }
 
 
@@ -324,9 +338,11 @@ void CLuaCanvasView::OnRButtonDown(UINT nFlags, CPoint point)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	RECT rect;
 	GetClientRect(&rect);
-	canvas.cursor(point, rect);
-	if (canvas.message("mouse", 3))
+	canvas.set_cursor(point, rect);
+	if (canvas.run("mouse", 3))
 		redraw();
+	timer_set(canvas.get_interval());
+
 }
 
 
@@ -335,9 +351,11 @@ void CLuaCanvasView::OnRButtonUp(UINT nFlags, CPoint point)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	RECT rect;
 	GetClientRect(&rect);
-	canvas.cursor(point, rect);
-	if (canvas.message("mouse", -3))
+	canvas.set_cursor(point, rect);
+	if (canvas.run("mouse", -3))
 		redraw();
+	timer_set(canvas.get_interval());
+
 }
 
 
@@ -346,8 +364,10 @@ BOOL CLuaCanvasView::OnMouseWheel(UINT nFlags, short zDelta, CPoint point)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	RECT rect;
 	GetClientRect(&rect);
-	canvas.cursor(point, rect);
-	if (canvas.message("scroll", zDelta))
+	canvas.set_cursor(point, rect);
+	if (canvas.run("scroll", zDelta))
 		redraw();
+	timer_set(canvas.get_interval());
+
 	return CWnd::OnMouseWheel(nFlags, zDelta, point);
 }

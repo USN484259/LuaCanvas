@@ -15,6 +15,7 @@ class CLuaCanvasView : public CWnd
 {
 	Canvas canvas;
 	UINT_PTR timer;
+	DWORD interval;
 // Construction
 public:
 	CLuaCanvasView();
@@ -27,8 +28,7 @@ public:
 
 // Operations
 private:
-	void timer_stop(void);
-	void timer_start(DWORD);
+	void timer_set(DWORD);
 	void title(LPCTSTR);
 	void redraw(void);
 	static void key_translate(std::string&,char);

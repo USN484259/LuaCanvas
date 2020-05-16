@@ -14,12 +14,12 @@ private:
 	CBitmap alpha_bmp;
 	CBrush alpha_brush;
 	int dc_store;
-	size_t index;
 
 	DWORD interval;
+
 	bool world_axis;
 	bool stretch;
-	bool interactive;
+
 	COLORREF color_pen;
 	COLORREF color_brush;
 	COLORREF color_text;
@@ -51,11 +51,10 @@ private:
 	void translate_point(POINT&);
 
 #define LAPI(F) static int F(lua_State*)
+	LAPI(lfun_config);
 
-	//static int open_lib_gdi(lua_State*);
-	//static int line(lua_State*);
-	LAPI(area);
-	LAPI(axis);
+	LAPI(get);
+	LAPI(timer);
 	LAPI(cursor);
 	LAPI(fill);
 	LAPI(line);
@@ -71,9 +70,8 @@ public:
 	~Canvas(void);
 	void reset(void);
 	bool load(const char*,CDC*,CRect&);
-	bool run(void);
-	void cursor(const POINT&, const RECT&);
-	bool message(const std::string&, int);
+	bool run(const std::string&,int);
+	void set_cursor(const POINT&, const RECT&);
 	bool draw(CDC*,CRect&);
 	void clear(void);
 

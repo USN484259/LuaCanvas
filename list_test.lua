@@ -8,7 +8,7 @@ local message
 
 local function init()
 	message = nil
-	list = List:new({-400,300})
+	list = List:new({-380,290},{text = 0xFF0000})
 	for i = string.byte('A'),string.byte('Z'),1 do
 		list:insert(string.char(i))
 	end
@@ -16,8 +16,8 @@ local function init()
 end
 
 
-local function redraw(index)
-	
+local function redraw(timer)
+		
 	gdi.fill()
 	list:draw()
 	
@@ -25,10 +25,9 @@ local function redraw(index)
 		gdi.text({0,0},message)
 	end
 	
-	
-	return 1
 end
 
+local last_click
 
 local function click(k)
 	if k < 0 then return end
@@ -38,10 +37,18 @@ local function click(k)
 		--message = (message or "")..x..' '..y
 		local index = list:find(pos)
 		if not index then return end
-	
-		message = (message or "")..list:find(index)
+		local obj = list:find(index)
+		message = (message or "")..obj.str
 		
-	elseif k == 3 then
+		if last_click then
+			list:find(last_click).attr = nil
+		end
+		
+		last_click = index
+		
+		obj.attr = {text = {0xFF,0,0}}
+		
+	elseif k == 3 and message then
 		list:insert(message)
 		message = nil
 	end
@@ -51,10 +58,12 @@ local function click(k)
 end
 
 local function entry(a,b)
-	if type(a) == "number" then
-		if a == 0 then init() end
+	if a == "draw" then
+		if not b then
+			init()
+		end
 		redraw()
-		return 1
+		return true
 	end
 	if a == "mouse" then return click(b) end
 
