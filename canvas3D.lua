@@ -1,6 +1,11 @@
 
 local function round(p)
-	return math.floor(p+0.5)
+	if type(p) == "number" then return math.floor(p+0.5) end
+	return {
+		math.floor(p[1]+0.5),
+		math.floor(p[2]+0.5),
+		math.floor(p[3]+0.5)
+	}
 end
 
 
@@ -159,11 +164,9 @@ end
 
 
 local function bound_step(b)
-	local dy = math.floor(b.pt[2]) + 1 - b.pt[2]
-	dy = math.min(b.ym - b.pt[2],dy)
-	b.pt[1] = b.pt[1] + dy*b.dx
-	b.pt[2] = b.pt[2] + dy
-	b.pt[3] = b.pt[3] + dy*b.dz
+	b.pt[1] = b.pt[1] + b.dx
+	b.pt[2] = b.pt[2] + 1
+	b.pt[3] = b.pt[3] + b.dz
 	return b
 end
 
@@ -177,7 +180,7 @@ function canvas3D:fill(pt,c)
 		
 		if a[2] > b[2] then a,b = b,a end
 		
-		--a,b = round(a),round(b)
+		a,b = round(a),round(b)
 		if b[2] ~= a[2] then
 			bounds[#bounds+1] = {
 				ym = b[2],
@@ -201,16 +204,17 @@ function canvas3D:fill(pt,c)
 			if cur_y < round(a.pt[2]) then break end
 			
 			self:draw_line(a.pt,b.pt,c)
-
-			if a.pt[2] < a.ym then
-				bounds[i] = bound_step(a)
-			else
+			
+			a = bound_step(a)
+			bounds[i] = a
+			if a.pt[2] >= a.ym then
 				table.remove(bounds,i)
 				i = i - 1
 			end
-			if b.pt[2] < b.ym then
-				bounds[i+1] = bound_step(b)
-			else
+			
+			b = bound_step(b)
+			bounds[i+1] = b
+			if b.pt[2] >= b.ym then
 				table.remove(bounds,i+1)
 				i = i - 1
 			end
@@ -222,7 +226,6 @@ function canvas3D:fill(pt,c)
 		end)
 	end
 end
-
 
 function canvas3D:surface(pt,c)
 	if #pt < 3 then error("canvas3D::surface at least 3 points needed") end
@@ -242,7 +245,7 @@ function canvas3D:surface(pt,c)
 		self.facing = {s*math.cos(self.yaw),s*math.sin(self.yaw),-math.cos(self.pitch)}
 	end
 	
-	if self.facing[1]*norm[1] + self.facing[2]*norm[2] + self.facing[3]*norm[3] >= 0 then return end
+	if self.facing[1]*norm[1] + self.facing[2]*norm[2] + self.facing[3]*norm[3] > 0 then return end
 	
 	if brush then
 		self:fill(pt,brush)
