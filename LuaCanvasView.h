@@ -22,7 +22,7 @@ public:
 
 // Attributes
 private:
-	static const std::unordered_map<char, const char*> key_mapping;
+	static const std::unordered_map<UINT, const char*> key_mapping;
 
 public:
 
@@ -31,7 +31,7 @@ private:
 	void timer_set(DWORD);
 	void title(LPCTSTR);
 	void redraw(void);
-	static void key_translate(std::string&,char);
+	static void key_translate(std::string&,UINT);
 public:
 	static void on_report(const char*, void*);
 

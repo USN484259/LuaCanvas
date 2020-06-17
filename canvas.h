@@ -54,6 +54,10 @@ private:
 	LAPI(lfun_config);
 
 	LAPI(get);
+	LAPI(brush);
+	LAPI(pen);
+	LAPI(font);
+	LAPI(msgbox);
 	LAPI(timer);
 	LAPI(cursor);
 	LAPI(fill);

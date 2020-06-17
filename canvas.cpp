@@ -255,6 +255,10 @@ void Canvas::open_lib_gdi(void) {
 
 	static const luaL_Reg members[] = {
 		LIB_MEMBER(get),
+		LIB_MEMBER(brush),
+		LIB_MEMBER(pen),
+		LIB_MEMBER(font),
+		LIB_MEMBER(msgbox),
 		LIB_MEMBER(timer),
 		LIB_MEMBER(cursor),
 		LIB_MEMBER(fill),
@@ -378,7 +382,7 @@ Canvas::DC_state::DC_state(CDC* pdc, lua_State* ls, int index) : dc(pdc), dc_sto
 	if (!lua_istable(ls, index))
 		return;
 
-	static const char* properties[] = { "pen","brush","text",nullptr };
+	static const char* properties[] = { "pen","brush","font",nullptr };
 
 	lua_pushnil(ls);
 	while (lua_next(ls, index)) {
@@ -391,7 +395,7 @@ Canvas::DC_state::DC_state(CDC* pdc, lua_State* ls, int index) : dc(pdc), dc_sto
 			set();
 			dc->SetDCBrushColor(to_color(ls, -1));
 			break;
-		case 2:	//text
+		case 2:	//font
 			set();
 			dc->SetTextColor(to_color(ls, -1));
 		}
@@ -435,7 +439,7 @@ void Canvas::parse_config(void) {
 
 LAPI(lfun_config) {
 	GET_THIS;
-	static const char* config[] = { "size","stretch","axis","pen","brush","text",nullptr };
+	static const char* config[] = { "size","stretch","axis","pen","brush","font",nullptr };
 	static const char* axis_config[] = { "screen","world",nullptr };
 
 	switch (luaL_checkoption(ls, -2, NULL, config)) {
@@ -468,7 +472,7 @@ LAPI(lfun_config) {
 	case 4:	//brush
 		This->color_brush = to_color(ls, -1);
 		break;
-	case 5:	//text
+	case 5:	//font
 		This->color_text = to_color(ls, -1);
 		break;
 	}
@@ -480,7 +484,7 @@ LAPI(lfun_config) {
 
 LAPI(get) {
 	GET_THIS;
-	std::string str = luaL_checkstring(ls, -1);
+	std::string str = luaL_checkstring(ls, 1);
 	if (str == "size") {
 		lua_pushinteger(ls, This->size.cx);
 		lua_pushinteger(ls, This->size.cy);
@@ -490,6 +494,46 @@ LAPI(get) {
 		lua_pushstring(ls, This->world_axis ? "world" : "screen");
 		return 1;
 	}
+	return 0;
+}
+
+LAPI(brush) {
+	GET_THIS;
+	COLORREF old = This->color_brush;
+	if (lua_gettop(ls) >= 1) {
+		This->color_brush = to_color(ls, 1);
+		This->mdc.SetDCBrushColor(This->color_brush);
+	}
+	lua_pushinteger(ls, old);
+	return 1;
+}
+
+LAPI(pen) {
+	GET_THIS;
+	COLORREF old = This->color_pen;
+	if (lua_gettop(ls) >= 1) {
+		This->color_pen = to_color(ls, 1);
+		This->mdc.SetDCPenColor(This->color_pen);
+	}
+	lua_pushinteger(ls, old);
+	return 1;
+}
+
+LAPI(font) {
+	GET_THIS;
+	COLORREF old = This->color_text;
+	if (lua_gettop(ls) >= 1) {
+		This->color_text = to_color(ls, 1);
+		This->mdc.SetTextColor(This->color_text);
+	}
+	lua_pushinteger(ls, old);
+	return 1;
+}
+
+LAPI(msgbox) {
+	GET_THIS;
+	CA2T str(luaL_checkstring(ls, 1));
+	MessageBox(NULL, str, _TEXT("LuaCanvas"), MB_OK);
 	return 0;
 }
 

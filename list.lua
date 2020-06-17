@@ -90,6 +90,8 @@ function List:find(p)
 		return nil
 	end
 	
+	if type(p) ~= "table" then error("List:find expect index string or point") end
+	
 	if need_redraw then return end
 	
 	if self.left < p[1] and p[1] < self.right then

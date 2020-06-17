@@ -14,7 +14,7 @@
 
 
 
-const std::unordered_map<char, const char*> CLuaCanvasView::key_mapping = {
+const std::unordered_map<UINT, const char*> CLuaCanvasView::key_mapping = {
 	{VK_BACK,"backspace"},
 	{VK_TAB,"tab"},
 	{VK_RETURN,"enter"},
@@ -238,11 +238,11 @@ void CLuaCanvasView::title(LPCTSTR str) {
 //
 //}
 
-void CLuaCanvasView::key_translate(std::string& res, char c) {
+void CLuaCanvasView::key_translate(std::string& res, UINT c) {
 	using namespace std;
 	res.clear();
-	if (isupper((byte)c) || isdigit((byte)c)) {
-		res.append(1, c);
+	if (isupper(c) || isdigit(c)) {
+		res.append(1, (char)c);
 		return;
 	}
 	auto it = key_mapping.find(c);
