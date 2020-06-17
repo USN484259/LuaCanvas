@@ -1,9 +1,38 @@
 local List = require('list')
 
+local pos_coordinate = {-20,290}
 local pos_toolbar = {-390,290}
 local pos_curvelist = {330,290}
 local pos_nodelist = {-390,-200}
 local pos_msg = {-390,-280}
+
+
+local function draw_grid(grain,color)
+	if not grain then return end
+	if not color then color = {0xCC,0xCC,0xCC} end
+	local width,height = gdi.get("size")
+	color = gdi.pen(color)
+	
+	gdi.line({-width/2,0},{width/2,0})
+	gdi.line({0,-height/2},{0,height/2})
+	
+	if grain ~= 0 then
+		local i = grain
+		
+		while i < math.max(width,height)/2 do
+			gdi.line({-width/2,-i},{width/2,-i})
+			gdi.line({-i,-height/2},{-i,height/2})
+			
+			gdi.line({-width/2,i},{width/2,i})
+			gdi.line({i,-height/2},{i,height/2})
+			
+			i = i + grain
+		end
+	end
+	
+	gdi.pen(color)
+
+end
 
 local function draw_nodes(points,sel)
 	local prev
@@ -288,16 +317,19 @@ function toolbar:new()
 	
 	this.list:insert("degree = 3")
 	this.list:insert("continuous")
+	this.list:insert("guides: axis")
 	this.list:insert("new")
 	this.list:insert("delete")
 	
 	this.node_set = nil
 	this.node_count = 4
+	this.guides = 0
 	
 	return this
 end
 
 function toolbar:draw()
+	draw_grid(self.guides)
 	self.list:draw()
 	self.curves:draw()
 	if self.node_set then
@@ -324,9 +356,22 @@ function toolbar:message(msg,arg,pos)
 				self.node_set = {}
 				return true
 			elseif index == 3 then
-				self.curves:insert(self.node_count)
+				local obj = self.list:find(3)
+				if self.guides == nil then
+					self.guides = 0
+					obj.str = "guides: axis"
+				elseif self.guides == 0 then
+					self.guides = 100
+					obj.str = "guides: grid"
+				else
+					self.guides = nil
+					obj.str = "guides: none"
+				end
 				return true
 			elseif index == 4 then
+				self.curves:insert(self.node_count)
+				return true
+			elseif index == 5 then
 				return self.curves:erase()
 			end
 		end
@@ -362,11 +407,10 @@ function toolbar:message(msg,arg,pos)
 
 end
 
+
 local gui = nil
 
-
-
-local help_toolbar = "点击degree切换次数，new新建曲线，在曲线列表中选择以查看或编辑曲线，continuous进入连续模式"
+local help_toolbar = "点击degree切换次数 guides切换参考线 new新建曲线 在曲线列表中选择以查看或编辑曲线 continuous进入连续模式"
 local help_continuous = "连续模式：左键放置下一个控制点，右键退出"
 local help_nodelist = "左下列表中选择控制点进行调整，或者使用delete删除曲线"
 local help_movenode = "调整控制点：方向键移动控制点，左键移动到该位置，右键退出"
@@ -384,15 +428,23 @@ local function get_help()
 end
 
 
-local function draw()
+local function draw(coord)
 	gdi.fill()
-	gdi.text(pos_msg,get_help())
 	gui:draw()
+	if coord then
+		gdi.text(pos_coordinate,'('..coord[1]..','..coord[2]..')')
+	end
+	gdi.text(pos_msg,get_help())
 	return true
 end
 
 
 local function entry(msg,argu)
+	if msg == "clear" then
+		gui = nil
+		collectgarbage()
+		return true
+	end
 	if msg == "draw" then
 		gui = toolbar:new()
 		help_text = help_toolbar
@@ -400,15 +452,10 @@ local function entry(msg,argu)
 	end
 	
 	if gui then
-		local pos = nil
+		local pos = table.pack(gdi.cursor())
 		
-		if msg == "mouse" then
-			local x,y = gdi.cursor()
-			pos = {x,y}
-		end
-		
-		if gui:message(msg,argu,pos) then
-			return draw()
+		if gui:message(msg,argu,pos) or msg == "cursor" then
+			return draw(pos)
 		end
 
 	end

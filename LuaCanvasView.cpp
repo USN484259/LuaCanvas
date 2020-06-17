@@ -75,6 +75,7 @@ ON_WM_MBUTTONUP()
 ON_WM_RBUTTONDOWN()
 ON_WM_RBUTTONUP()
 ON_WM_MOUSEWHEEL()
+ON_WM_MOUSEMOVE()
 END_MESSAGE_MAP()
 
 
@@ -142,6 +143,7 @@ void CLuaCanvasView::redraw(void) {
 void CLuaCanvasView::OnCanvasClear()
 {
 	timer_set(0);
+	canvas.run("clear", 0);
 	canvas.clear();
 	redraw();
 
@@ -215,7 +217,7 @@ void CLuaCanvasView::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if (nIDEvent == timer) {
-		if (canvas.run("draw",1))
+		if (canvas.run("timer",0))
 			redraw();
 		timer_set(canvas.get_interval());
 	}
@@ -370,4 +372,17 @@ BOOL CLuaCanvasView::OnMouseWheel(UINT nFlags, short zDelta, CPoint point)
 	timer_set(canvas.get_interval());
 
 	return CWnd::OnMouseWheel(nFlags, zDelta, point);
+}
+
+
+void CLuaCanvasView::OnMouseMove(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	RECT rect;
+	GetClientRect(&rect);
+	canvas.set_cursor(point, rect);
+	if (canvas.run("cursor", 0))
+		redraw();
+	timer_set(canvas.get_interval());
+	CWnd::OnMouseMove(nFlags, point);
 }
